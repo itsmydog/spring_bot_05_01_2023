@@ -1,21 +1,27 @@
 package com.ivan.spring.bot.test.spring_bot_05_01_2023.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
-@Entity()
-@Table(name = "name_country")
+@Entity
+@Table(name = "employees")
 public class User {
     @Id
+    @Column(name = "id")
     private int id;
+    @Column(name = "name")
     private String name;
+    @Column(name = "country")
     private String country;
 
 
 
 
     public User() {
+    }
+
+    public User(String name, String country) {
+        this.name = name;
+        this.country = country;
     }
 
     public long getId() {
@@ -42,6 +48,10 @@ public class User {
         this.country = country;
     }
 
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "department_id")
+    private Departments departments;
+
     @Override
     public String toString() {
         return "User{" +
@@ -49,5 +59,13 @@ public class User {
                 ", name='" + name + '\'' +
                 ", country='" + country + '\'' +
                 '}';
+    }
+
+    public Departments getDepartments() {
+        return departments;
+    }
+
+    public void setDepartments(Departments departments) {
+        this.departments = departments;
     }
 }
