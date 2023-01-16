@@ -11,7 +11,7 @@ public class User {
     @Column(name = "name")
     private String name;
     @Column(name = "country")
-    private String country;
+    private String surName;
 
 
 
@@ -21,7 +21,7 @@ public class User {
 
     public User(String name, String country) {
         this.name = name;
-        this.country = country;
+        this.surName = country;
     }
 
     public long getId() {
@@ -40,12 +40,12 @@ public class User {
         this.name = name;
     }
 
-    public String getCountry() {
-        return country;
+    public String getSurName() {
+        return surName;
     }
 
-    public void setCountry(String country) {
-        this.country = country;
+    public void setSurName(String country) {
+        this.surName = country;
     }
 
     @ManyToOne(cascade = CascadeType.ALL)
@@ -57,7 +57,7 @@ public class User {
         return "User{" +
                 "id=" + id +
                 ", name='" + name + '\'' +
-                ", country='" + country + '\'' +
+                ", country='" + surName + '\'' +
                 '}';
     }
 
