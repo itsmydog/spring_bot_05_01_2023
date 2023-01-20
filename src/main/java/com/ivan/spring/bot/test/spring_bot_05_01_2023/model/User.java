@@ -10,7 +10,7 @@ public class User {
     private int id;
     @Column(name = "name")
     private String name;
-    @Column(name = "country")
+    @Column(name = "surname")
     private String surName;
 
 

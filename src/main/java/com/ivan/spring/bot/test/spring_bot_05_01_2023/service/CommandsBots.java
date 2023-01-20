@@ -23,6 +23,8 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @Slf4j
@@ -49,7 +51,7 @@ public class CommandsBots extends TelegramLongPollingBot {
     static final String DEPARTMENTS = "Работа с отделами";
 
 
-    State state;
+    State state = State.Start;
     public User user = new User();
     public Departments dep = new Departments();
 
@@ -87,7 +89,7 @@ public class CommandsBots extends TelegramLongPollingBot {
             long chatId = update.getMessage().getChatId();
             if (messageText.equals("/start")) {
                 startCommand(chatId, update.getMessage().getChat().getFirstName());
-            } else if (messageText.equals("/help")){
+            } else if (messageText.equals("/help")) {
                 helpCommand(chatId, update.getMessage().getChat().getFirstName());
             } else if (messageText.equals(USER)) {
                 userButton(chatId);
@@ -181,29 +183,31 @@ public class CommandsBots extends TelegramLongPollingBot {
                 sendMessage(chatId, text);
                 state = State.Departments_New;
             } else if (callBackData.equals(USER_CREATE_BUTTON)) {
-                sendMessage(chatId, "введите имя");
+                sendMessage(chatId, "Введите имя с большой буквы и максимум 30 символов (без цифр)");
                 state = State.Name;
             } else if (callBackData.equals(USER_READ_BUTTON)) {
                 readUser(chatId);
             } else if (callBackData.equals(USER_DELETE_BUTTON)) {
-                sendMessage(chatId, "введите Id для удаления РАБОТНИКА");
+                sendMessage(chatId, "Введите Id для удаления РАБОТНИКА");
                 state = State.Start_Delete;
             } else if (callBackData.equals(USER_UPDATE_BUTTON)) {
-                sendMessage(chatId, "введите Id работника для его изменений");
+                sendMessage(chatId, "Введите Id работника для его изменений");
                 state = State.ID_NEW;
             } else if (callBackData.equals(USER_FIND_BUTTON)) {
-                sendMessage(chatId, "введите Имя или Фамилию сотрудника");
+                sendMessage(chatId, "Введите Имя или Фамилию сотрудника");
                 state = State.One_Employee;
             } else if (callBackData.equals(DEPARTMENT_CREATE_BUTTON)) {
-                sendMessage(chatId, "введите название ОТДЕЛА");
+                sendMessage(chatId, "Введите название ОТДЕЛА");
                 state = State.Name_Departments;
             } else if (callBackData.equals(DEPARTMENT_READ_BUTTON)) {
                 readDepartments(chatId);
             } else if (callBackData.equals(DEPARTMENT_DELETE_BUTTON)) {
-                sendMessage(chatId, "введите Id для удаления ОТДЕЛА");
-                state = State.Departments_Delete;
+//                sendMessage(chatId, "Введите Id для удаления ОТДЕЛА");
+//                state = State.Departments_Delete;
+                sendMessage(chatId, "Функция в разработке");
+                state = State.Start;
             } else if (callBackData.equals(DEPARTMENT_UPDATE_BUTTON)) {
-                sendMessage(chatId, "введите Id для обновления ОТДЕЛА");
+                sendMessage(chatId, "Введите Id для обновления ОТДЕЛА");
                 state = State.Departments_Update;
 
 
@@ -310,203 +314,326 @@ public class CommandsBots extends TelegramLongPollingBot {
     }
 
     private void departmentId(long chatId, String messageText) {
-        Long departmentsId = Long.parseLong(messageText);
-        Departments department = departamentRepository.findById(departmentsId).orElse(null);
-        if (department != null) {
-            sendMessage(chatId, "Работник " + user.getName() + " " + user.getSurName() +
-                    " назначен в отдел " + department.getDepartmentName());
-            department.addUserToDepartments(user);
-            departamentRepository.save(department);
-            state = State.Start;
-        } else {
-            sendMessage(chatId, "нет такого отдела");
+        try {
+            Long departmentsId = Long.parseLong(messageText);
+            Departments department = departamentRepository.findById(departmentsId).orElse(null);
+            if (department != null) {
+                sendMessage(chatId, "Работник " + user.getName() + " " + user.getSurName() +
+                        " назначен в отдел " + department.getDepartmentName());
+                department.addUserToDepartments(user);
+                departamentRepository.save(department);
+                state = State.Start;
+            } else {
+                sendMessage(chatId, "нет такого отдела");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void surName(long chatId, String messageText) {
-        user.setSurName(messageText);
-        sendMessage(chatId, "введите Id раздела, в котором будет работать пользователь");
-        sendMessage(chatId, "вот список существующих отделов");
-        var departaments = departamentRepository.findAll();
-        for (Departments depOne : departaments) {
-            int id = depOne.getId();
-            String name = depOne.getDepartmentName();
-            sendMessage(chatId, "id: " + id + " отдел " + name);
+        Pattern pattern = Pattern.compile("^[A-ZА-Я][a-zа-я]{1,15}(\\s[A-ZА-Я][a-zа-я]{1,15})?$");
+        Matcher matcher = pattern.matcher(messageText);
+        try {
+            if (matcher.find()) {
+                user.setSurName(messageText);
+                sendMessage(chatId, "введите Id отдела, в котором будет работать пользователь");
+                sendMessage(chatId, "вот список существующих отделов");
+                var departaments = departamentRepository.findAll();
+                for (Departments depOne : departaments) {
+                    int id = depOne.getId();
+                    String name = depOne.getDepartmentName();
+                    sendMessage(chatId, "id: " + id + " отдел " + name);
+                }
+                state = State.Departments_Id;
+            } else {
+                sendMessage(chatId, "Фамилия вводится с большой буквы и максимум 30 символов (без цифр)");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
-        state = State.Departments_Id;
     }
 
     private void name(long chatId, String messageText) {
+        Pattern pattern = Pattern.compile("^[A-ZА-Я][a-zа-я]{1,15}(\\s[A-ZА-Я][a-zа-я]{1,15})?$");
+        Matcher matcher = pattern.matcher(messageText);
         user.setId(0);
-        user.setName(messageText);
-        sendMessage(chatId, "введите фамилию");
-        state = State.SurName;
+        try {
+            if (matcher.find()) {
+                user.setName(messageText);
+                sendMessage(chatId, "Введите фамилию с большой буквы (без цифр, максимум 30 символов)");
+                state = State.SurName;
+            } else {
+                sendMessage(chatId, "Имя вводится с большой буквы и максимум 30 символов (без цифр)");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void departmentNewMinSalary(long chatId, String messageText) {
-        dep.setMinSalary(Integer.parseInt(messageText));
-        sendMessage(chatId, "отдел " + dep.getDepartmentName() + " с заработной платой от " +
-                dep.getMinSalary() + " и до " + dep.getMaxSalary() + " обновлен");
-        departamentRepository.save(dep);
-        state = State.Start;
+        Pattern pattern = Pattern.compile("\\d{1,5}");
+        Matcher matcher = pattern.matcher(messageText);
+        int minSalary = Integer.parseInt(messageText);
+        try {
+            if (matcher.find() && dep.getMaxSalary() > minSalary) {
+                dep.setMinSalary(Integer.parseInt(messageText));
+                sendMessage(chatId, "отдел " + dep.getDepartmentName() + " с заработной платой от " +
+                        dep.getMinSalary() + "руб. и до " + dep.getMaxSalary() + "руб. обновлен");
+                departamentRepository.save(dep);
+                state = State.Start;
+            } else {
+                sendMessage(chatId, "Минимальная должна быть меньше максимальной " + dep.getMaxSalary() +
+                        " руб, и не более 100000 рублей");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void departmentNewMaxSalary(long chatId, String messageText) {
-        dep.setMaxSalary(Integer.parseInt(messageText));
-        sendMessage(chatId, "введите минимальный размер оплаты труда");
-        state = State.Departments_New_MinSalary;
+        Pattern pattern = Pattern.compile("\\d{1,5}");
+        Matcher matcher = pattern.matcher(messageText);
+        try {
+            if (matcher.find()) {
+                dep.setMaxSalary(Integer.parseInt(messageText));
+                sendMessage(chatId, "введите минимальный размер оплаты труда");
+                state = State.Departments_New_MinSalary;
+            } else {
+                sendMessage(chatId, "Максимальная ЗП должна быть не более 100000 рублей");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void departmentNewName(long chatId, String messageText) {
-        dep.setDepartmentName(messageText);
-        sendMessage(chatId, "введите максимальный размер оплаты труда");
-        state = State.Departments_New_MaxSalary;
+        try {
+            dep.setDepartmentName(messageText);
+            sendMessage(chatId, "введите максимальный размер оплаты труда");
+            state = State.Departments_New_MaxSalary;
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void departmentUpdate(long chatId, String messageText) {
-        if (departamentRepository.existsById(Long.parseLong(messageText))) {
-            dep.setId(Integer.parseInt(messageText));
-            sendMessage(chatId, "Введите новое название отдела");
-            state = State.Departments_New_Name;
-        } else {
-            sendMessage(chatId, "Нет такого отдела");
+        try {
+            if (departamentRepository.existsById(Long.parseLong(messageText))) {
+                dep.setId(Integer.parseInt(messageText));
+                sendMessage(chatId, "Введите новое название отдела");
+                state = State.Departments_New_Name;
+            } else {
+                sendMessage(chatId, "Нет такого отдела");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void departmentDelete(long chatId, String messageText) {
-        if (departamentRepository.existsById(Long.parseLong(messageText))) {
-            dep.setId(Integer.parseInt(messageText));
-            sendMessage(chatId, "Отдел: " + dep.getDepartmentName() + " удален");
-            departamentRepository.delete(dep);
-            var departaments = departamentRepository.findAll();
-            sendMessage(chatId, "Список отделов");
-            for (Departments depDel : departaments) {
-                int id = depDel.getId();
-                String name = depDel.getDepartmentName();
-                sendMessage(chatId, "id: " + id + " отдел " + name);
+        try {
+            if (departamentRepository.existsById(Long.parseLong(messageText))) {
+                dep.setId(Integer.parseInt(messageText));
+                sendMessage(chatId, "Отдел: " + dep.getDepartmentName() + " удален");
+                departamentRepository.delete(dep);
+                var departaments = departamentRepository.findAll();
+                sendMessage(chatId, "Список отделов");
+                for (Departments depDel : departaments) {
+                    int id = depDel.getId();
+                    String name = depDel.getDepartmentName();
+                    sendMessage(chatId, "id: " + id + " отдел " + name);
+                }
+                state = State.Start;
+            } else {
+                sendMessage(chatId, "Нет такого отдела, попробуйте еще раз.\nВот список отделов");
+                var departaments = departamentRepository.findAll();
+                for (Departments depDel : departaments) {
+                    int id = depDel.getId();
+                    String name = depDel.getDepartmentName();
+                    sendMessage(chatId, "id: " + id + " отдел " + name);
+                }
             }
-            state = State.Start;
-        } else {
-            sendMessage(chatId, "Нет такого отдела, попробуйте еще раз.\nВот список отделов");
-            var departaments = departamentRepository.findAll();
-            for (Departments depDel : departaments) {
-                int id = depDel.getId();
-                String name = depDel.getDepartmentName();
-                sendMessage(chatId, "id: " + id + " отдел " + name);
-            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void minSalary(long chatId, String messageText) {
-        dep.setMinSalary(Integer.parseInt(messageText));
-        sendMessage(chatId, "отдел " + dep.getDepartmentName() + " с заработной платой от " +
-                dep.getMinSalary() + " и до " + dep.getMaxSalary() + " добавлен");
-        departamentRepository.save(dep);
-        state = State.Start;
+        Pattern pattern = Pattern.compile("\\d{1,5}");
+        Matcher matcher = pattern.matcher(messageText);
+        int minSalary = Integer.parseInt(messageText);
+        try {
+            if (matcher.find() && dep.getMaxSalary() > minSalary) {
+                dep.setMinSalary(Integer.parseInt(messageText));
+                sendMessage(chatId, "отдел " + dep.getDepartmentName() + " с заработной платой от " +
+                        dep.getMinSalary() + "руб. и до " + dep.getMaxSalary() + "руб. обновлен");
+                departamentRepository.save(dep);
+                state = State.Start;
+            } else {
+                sendMessage(chatId, "Минимальная должна быть меньше максимальной " + dep.getMaxSalary() +
+                        " руб, и не более 100000 рублей");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void maxSalary(long chatId, String messageText) {
-        dep.setMaxSalary(Integer.parseInt(messageText));
-        sendMessage(chatId, "введите минимальный размер оплаты труда");
-        state = State.Min_Salary;
+        Pattern pattern = Pattern.compile("\\d{1,5}");
+        Matcher matcher = pattern.matcher(messageText);
+        try {
+            if (matcher.find()) {
+                dep.setMaxSalary(Integer.parseInt(messageText));
+                sendMessage(chatId, "введите минимальный размер оплаты труда");
+                state = State.Min_Salary;
+            } else {
+                sendMessage(chatId, "Максимальная ЗП должна быть не более 100000 рублей");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
+
     }
 
     private void nameDepatments(long chatId, String messageText) {
         dep.setId(0);
-        dep.setDepartmentName(messageText);
-        sendMessage(chatId, "введите максимальный размер оплаты труда");
-        state = State.Max_Salary;
+        try {
+
+            dep.setDepartmentName(messageText);
+            sendMessage(chatId, "введите максимальный размер оплаты труда");
+            state = State.Max_Salary;
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void departmentNew(long chatId, String messageText) {
-        Long departmentsIdNew = Long.parseLong(messageText);
-        User user1 = userRepository.findById(user.getId()).orElse(null);
-        Departments departmentNew = departamentRepository.findById(departmentsIdNew).orElse(null);
-        if (departmentNew != null) {
-            departmentNew.addUserToDepartments(user1);
-            try {
-                departamentRepository.save(departmentNew);
-                sendMessage(chatId, "Работник " + user1.getName() + " " + user1.getSurName() +
-                        " переведен в \nотдел " + departmentNew.getDepartmentName());
-            } catch (Exception e) {
-                sendMessage(chatId, "Работник " + user1.getName() + " " + user1.getSurName() +
-                        " <<<НЕ ПЕРЕВЕДЕН>>>");
-            } finally {
-                state = State.Start;
+        try {
+            Long departmentsIdNew = Long.parseLong(messageText);
+            User user1 = userRepository.findById(user.getId()).orElse(null);
+            Departments departmentNew = departamentRepository.findById(departmentsIdNew).orElse(null);
+            if (departmentNew != null) {
+                departmentNew.addUserToDepartments(user1);
+                try {
+                    departamentRepository.save(departmentNew);
+                    sendMessage(chatId, "Работник " + user1.getName() + " " + user1.getSurName() +
+                            " переведен в \nотдел " + departmentNew.getDepartmentName());
+                } catch (Exception e) {
+                    sendMessage(chatId, "Работник " + user1.getName() + " " + user1.getSurName() +
+                            " <<<НЕ ПЕРЕВЕДЕН>>>");
+                } finally {
+                    state = State.Start;
+                }
+            } else {
+                sendMessage(chatId, "нет такого отдела");
             }
-        } else {
-            sendMessage(chatId, "нет такого отдела");
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void nameNew(long chatId, String messageText) {
-        user.setName(messageText);
-        sendMessage(chatId, "Введите фамилию");
-        state = State.SurName_NEW;
+        Pattern pattern = Pattern.compile("^[A-ZА-Я][a-zа-я]{1,15}(\\s[A-ZА-Я][a-zа-я]{1,15})?$");
+        Matcher matcher = pattern.matcher(messageText);
+        try {
+            if (matcher.find()) {
+                user.setName(messageText);
+                sendMessage(chatId, "Введите фамилию с большой буквы (без цифр, максимум 30 символов)");
+                state = State.SurName_NEW;
+            } else {
+                sendMessage(chatId, "Имя вводится с большой буквы и максимум 30 символов (без цифр)");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void idNew(long chatId, String messageText) {
-        if (!userRepository.findById(Long.valueOf(messageText)).isEmpty()) {
-            user.setId(Integer.parseInt(messageText));
-            UpdateUser(chatId);
-        } else {
-            sendMessage(chatId, "нет такого пользователя, попробуйте еще раз");
+        try {
+            if (!userRepository.findById(Long.valueOf(messageText)).isEmpty()) {
+                user.setId(Integer.parseInt(messageText));
+                UpdateUser(chatId);
+            } else {
+                sendMessage(chatId, "нет такого пользователя, попробуйте еще раз");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void surNameNew(long chatId, String messageText) {
-        user.setSurName(messageText);
-        User userNew = userRepository.findById(Long.valueOf(user.getId())).orElse(null);
-        userRepository.save(user);
-        Departments departmentNew2 = departamentRepository.findById(Long.valueOf(userNew.getDepartments().getId())).orElse(null);
-        departmentNew2.addUserToDepartments(user);
-        departamentRepository.save(departmentNew2);
+        Pattern pattern = Pattern.compile("^[A-ZА-Я][a-zа-я]{1,29}?$");
+        Matcher matcher = pattern.matcher(messageText);
+        try {
+            if (matcher.find()) {
+                user.setSurName(messageText);
+                User userNew = userRepository.findById(Long.valueOf(user.getId())).orElse(null);
+                userRepository.save(user);
+                Departments departmentNew2 = departamentRepository.findById(Long.valueOf(userNew.getDepartments().getId())).orElse(null);
+                departmentNew2.addUserToDepartments(user);
+                departamentRepository.save(departmentNew2);
 
-        sendMessage(chatId, "Данные изменены");
-        state = State.Start;
+                sendMessage(chatId, "Данные изменены");
+                state = State.Start;
+            } else {
+                sendMessage(chatId, "Фамилия вводится с большой буквы и максимум 30 символов (без цифр)");
+            }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
+        }
     }
 
     private void userDelete(long chatId, String messageText) {
-        if (!userRepository.findById(Long.valueOf(messageText)).isEmpty()) {
-            User userDel = userRepository.findById(Long.valueOf(messageText)).orElse(null);
-            userDel.setDepartments(null);
-            userRepository.save(userDel);
-            user.setId(Integer.parseInt(messageText));
-            sendMessage(chatId, "Сотрудник удален");
-            state = State.Start;
-            userRepository.deleteById(user.getId());
-            sendMessage(chatId, "Вот список оставшихся");
-            var users = userRepository.findAll();
-            for (User userOne : users) {
-                int id = (int) userOne.getId();
-                String name = userOne.getName();
-                String surName = userOne.getSurName();
-                Departments idDep = userOne.getDepartments();
-                sendMessage(chatId, "id: " + id + " " + name + " " + surName
-                        + " Работает в " + idDep.getDepartmentName());
+        try {
+            if (!userRepository.findById(Long.valueOf(messageText)).isEmpty()) {
+                User userDel = userRepository.findById(Long.valueOf(messageText)).orElse(null);
+                userDel.setDepartments(null);
+                userRepository.save(userDel);
+                user.setId(Integer.parseInt(messageText));
+                sendMessage(chatId, "Сотрудник удален");
+                state = State.Start;
+                userRepository.deleteById(user.getId());
+                sendMessage(chatId, "Вот список оставшихся");
+                var users = userRepository.findAll();
+                for (User userOne : users) {
+                    int id = (int) userOne.getId();
+                    String name = userOne.getName();
+                    String surName = userOne.getSurName();
+                    Departments idDep = userOne.getDepartments();
+                    sendMessage(chatId, "id: " + id + " " + name + " " + surName
+                            + "\nРаботает в " + idDep.getDepartmentName());
+                }
+            } else {
+                sendMessage(chatId, "нет такого пользователя, попробуйте еще раз");
             }
-        } else {
-            sendMessage(chatId, "нет такого пользователя, попробуйте еще раз");
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
     }
 
     private void userFind(long chatId, String messageText) {
         var usersFind = userRepository.findAll();
         int count = 0;
-        for (User userOne : usersFind) {
-            if (userOne.getName().equalsIgnoreCase(messageText)) {
-                sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
-                        " из отдела " + userOne.getDepartments().getDepartmentName());
-                count++;
-            } else if (userOne.getSurName().equalsIgnoreCase(messageText)) {
-                sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
-                        " из отдела " + userOne.getDepartments().getDepartmentName());
-                count++;
-            } else if (userOne.getDepartments().getDepartmentName().equalsIgnoreCase(messageText)) {
-                sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
-                        " из отдела " + userOne.getDepartments().getDepartmentName());
-                count++;
+        try {
+            for (User userOne : usersFind) {
+                if (userOne.getName().equalsIgnoreCase(messageText)) {
+                    sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
+                            " из отдела " + userOne.getDepartments().getDepartmentName());
+                    count++;
+                } else if (userOne.getSurName().equalsIgnoreCase(messageText)) {
+                    sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
+                            " из отдела " + userOne.getDepartments().getDepartmentName());
+                    count++;
+                } else if (userOne.getDepartments().getDepartmentName().equalsIgnoreCase(messageText)) {
+                    sendMessage(chatId, "Id " + userOne.getId() + " " + userOne.getName() + " " + userOne.getSurName() +
+                            " из отдела " + userOne.getDepartments().getDepartmentName());
+                    count++;
+                }
+
             }
+        } catch (Exception e) {
+            sendMessage(chatId, "введите корректные данные");
         }
         if (count > 0) {
             sendMessage(chatId, "найдено " + count + " сотрудников");
@@ -523,8 +650,8 @@ public class CommandsBots extends TelegramLongPollingBot {
             String name = depOne.getDepartmentName();
             long minSalary = depOne.getMinSalary();
             long maxSalary = depOne.getMaxSalary();
-            sendMessage(chatId, "id: " + id + " отдел " + name + " от " +
-                    minSalary + " до " + maxSalary);
+            sendMessage(chatId, "id: " + id + " отдел " + name + " с зп от " +
+                    minSalary + "руб. до " + maxSalary + "руб.");
         }
         state = State.Start;
     }
@@ -535,7 +662,7 @@ public class CommandsBots extends TelegramLongPollingBot {
             int id = (int) userOne.getId();
             String name = userOne.getName();
             String surName = userOne.getSurName();
-            sendMessage(chatId, "id: " + id + " Имя: " + name + ", Фамилия: " + surName + "\nотдел "
+            sendMessage(chatId, "id: " + id + "\nИмя: " + name + "\nФамилия: " + surName + "\nотдел "
                     + userOne.getDepartments().getDepartmentName() + " ID: " + userOne.getDepartments().getId());
         }
     }
