@@ -1,9 +1,11 @@
 package com.ivan.spring.bot.test.spring_bot_05_01_2023.model;
 
 import jakarta.persistence.*;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+@Component
 
 @Entity
 @Table(name = "departments")
@@ -29,6 +31,8 @@ public class Departments {
         this.maxSalary = maxSalary;
         this.minSalary = minSalary;
     }
+
+
 
     public void addUserToDepartments(User user){
         if (userList == null){

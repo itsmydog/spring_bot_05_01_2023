@@ -1,6 +1,9 @@
 package com.ivan.spring.bot.test.spring_bot_05_01_2023.model;
 
 import jakarta.persistence.*;
+import org.springframework.stereotype.Component;
+
+@Component
 
 @Entity
 @Table(name = "employees")
